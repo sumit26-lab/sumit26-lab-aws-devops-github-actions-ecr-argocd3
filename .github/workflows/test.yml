@@ -22,14 +22,12 @@ jobs:
           echo "Workflow Ref: $GITHUB_WORKFLOW_REF"
           echo "========================================"
 
-      - name: Get GitHub OIDC Token
+      - name: Get and Inspect GitHub OIDC Claims
         shell: bash
         run: |
           RESPONSE=$(curl -sS \
             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")
-
-          echo "$RESPONSE" | jq '{value_exists: (.value != null and .value != "")}'
 
           TOKEN=$(echo "$RESPONSE" | jq -r '.value')
 
@@ -38,16 +36,36 @@ jobs:
             exit 1
           fi
 
-          echo "GitHub OIDC token was successfully obtained."
+          echo "GitHub OIDC token obtained successfully."
+          echo ""
+          echo "OIDC claims:"
+          
+          printf '%s' "$TOKEN" | python3 -c '
+          import sys
+          import json
+          import base64
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::234221568115:role/github-actions-oidc-role-ui3
-          aws-region: us-east-1
-          audience: sts.amazonaws.com
+          token = sys.stdin.read().strip()
+          payload = token.split(".")[1]
+          payload += "=" * (-len(payload) % 4)
 
-      - name: Verify AWS Identity
-        run: |
-          echo "AWS OIDC authentication successful!"
-          aws sts get-caller-identity
+          data = json.loads(base64.urlsafe_b64decode(payload))
+
+          claims = {
+              "iss": data.get("iss"),
+              "aud": data.get("aud"),
+              "sub": data.get("sub"),
+              "repository": data.get("repository"),
+              "repository_owner": data.get("repository_owner"),
+              "repository_id": data.get("repository_id"),
+              "repository_owner_id": data.get("repository_owner_id"),
+              "ref": data.get("ref"),
+              "ref_type": data.get("ref_type"),
+              "event_name": data.get("event_name")
+          }
+
+          print(json.dumps(claims, indent=2))
+          '
+
+      # AWS authentication temporarily removed.
+      # We first need to see the actual OIDC "sub" claim.
