@@ -23,7 +23,6 @@ jobs:
           echo "========================================"
 
       - name: Get GitHub OIDC Token
-        id: oidc
         shell: bash
         run: |
           RESPONSE=$(curl -sS \
@@ -50,4 +49,5 @@ jobs:
 
       - name: Verify AWS Identity
         run: |
+          echo "AWS OIDC authentication successful!"
           aws sts get-caller-identity
