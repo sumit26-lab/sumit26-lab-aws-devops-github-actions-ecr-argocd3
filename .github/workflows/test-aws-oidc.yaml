@@ -12,61 +12,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Show GitHub Context
         run: |
           echo "========================================"
-          echo "GitHub Repository : $GITHUB_REPOSITORY"
-          echo "GitHub Ref        : $GITHUB_REF"
-          echo "GitHub Event      : $GITHUB_EVENT_NAME"
-          echo "GitHub Actor      : $GITHUB_ACTOR"
-          echo "Workflow Ref      : $GITHUB_WORKFLOW_REF"
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Ref: $GITHUB_REF"
+          echo "Event: $GITHUB_EVENT_NAME"
+          echo "Actor: $GITHUB_ACTOR"
+          echo "Workflow Ref: $GITHUB_WORKFLOW_REF"
           echo "========================================"
 
-      - name: Inspect OIDC Claims
+      - name: Get GitHub OIDC Token
+        id: oidc
         shell: bash
         run: |
-          set -e
-
           RESPONSE=$(curl -sS \
             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")
 
+          echo "$RESPONSE" | jq '{value_exists: (.value != null and .value != "")}'
+
           TOKEN=$(echo "$RESPONSE" | jq -r '.value')
 
           if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-            echo "ERROR: Could not obtain GitHub OIDC token"
+            echo "ERROR: GitHub did not return an OIDC token"
             exit 1
           fi
 
-          PAYLOAD=$(echo "$TOKEN" | cut -d '.' -f2 | tr '_-' '/+')
+          echo "GitHub OIDC token was successfully obtained."
 
-          case $((${#PAYLOAD} % 4)) in
-            2) PAYLOAD="${PAYLOAD}==" ;;
-            3) PAYLOAD="${PAYLOAD}=" ;;
-          esac
-
-          DECODED=$(echo "$PAYLOAD" | base64 -d 2>/dev/null)
-
-          echo "========== OIDC CLAIMS =========="
-          echo "$DECODED" | jq '{
-            iss,
-            aud,
-            sub,
-            repository,
-            repository_owner,
-            repository_id,
-            repository_owner_id,
-            ref,
-            ref_type,
-            event_name,
-            job_workflow_ref
-          }'
-          echo "================================="
-
-      - name: Configure AWS credentials using OIDC
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::234221568115:role/github-actions-oidc-role-ui3
@@ -75,7 +50,4 @@ jobs:
 
       - name: Verify AWS Identity
         run: |
-          echo "========================================"
-          echo "AWS OIDC authentication successful!"
-          echo "========================================"
           aws sts get-caller-identity
