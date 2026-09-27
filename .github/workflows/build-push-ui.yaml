@@ -6,7 +6,7 @@ on:
     paths:
       - "src/ui/src/**"
       #- ".github/workflows/build-push-ui.yaml" # During testing phases only for prod comment this line
-
+  workflow_dispatch:
 permissions:
   id-token: write # Needed for OIDC
   contents: write # Needed to push commits
@@ -26,7 +26,7 @@ jobs:
       - name: OIDC Debugger
         uses: github/actions-oidc-debugger@main
         continue-on-error: true
-        
+
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
