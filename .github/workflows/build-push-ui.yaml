@@ -23,9 +23,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: OIDC Debugger
-        uses: github/actions-oidc-debugger@main
-        continue-on-error: true
+    
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
